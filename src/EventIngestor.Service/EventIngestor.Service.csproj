@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>EventIngestor.Service</RootNamespace>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <TieredPGO>true</TieredPGO>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EventIngestor.Core\EventIngestor.Core.csproj" />
+    <ProjectReference Include="..\EventIngestor.Pipeline\EventIngestor.Pipeline.csproj" />
+  </ItemGroup>
+
+</Project>

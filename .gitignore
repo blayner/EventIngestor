@@ -1,0 +1,51 @@
+## .NET build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]rm/
+[Aa]rm64/
+artifacts/
+publish/
+
+## IDEs
+.vs/
+.vscode/*
+!.vscode/settings.json
+!.vscode/launch.json
+.idea/
+*.user
+*.suo
+*.userprefs
+*.sln.docstates
+
+## Tests / coverage
+TestResults/
+[Tt]est[Rr]esult*/
+coverage*.json
+coverage*.xml
+coverage*.info
+*.coverage
+*.coveragexml
+
+## BenchmarkDotNet
+BenchmarkDotNet.Artifacts/
+
+## k6
+load-tests/k6/results/
+*.k6.json
+
+## Runtime data written by the file sink
+data/
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Secrets
+*.env
+.env*
+!.env.example
+appsettings.*.local.json
