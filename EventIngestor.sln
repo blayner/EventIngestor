@@ -9,6 +9,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventIngestor.Pipeline", "s
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventIngestor.Service", "src\EventIngestor.Service\EventIngestor.Service.csproj", "{D81C4F6A-2E95-47B3-A0C8-93B57E1F26D4}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventIngestor.Tests", "tests\EventIngestor.Tests\EventIngestor.Tests.csproj", "{4B7A0E93-F2C6-4D18-B5E7-6A1C08D39F25}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{D81C4F6A-2E95-47B3-A0C8-93B57E1F26D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D81C4F6A-2E95-47B3-A0C8-93B57E1F26D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D81C4F6A-2E95-47B3-A0C8-93B57E1F26D4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4B7A0E93-F2C6-4D18-B5E7-6A1C08D39F25}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4B7A0E93-F2C6-4D18-B5E7-6A1C08D39F25}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4B7A0E93-F2C6-4D18-B5E7-6A1C08D39F25}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4B7A0E93-F2C6-4D18-B5E7-6A1C08D39F25}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
