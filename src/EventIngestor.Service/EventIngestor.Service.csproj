@@ -8,6 +8,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Grpc.AspNetCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="Protos\ingest.proto" GrpcServices="Server" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\EventIngestor.Core\EventIngestor.Core.csproj" />
     <ProjectReference Include="..\EventIngestor.Pipeline\EventIngestor.Pipeline.csproj" />
   </ItemGroup>

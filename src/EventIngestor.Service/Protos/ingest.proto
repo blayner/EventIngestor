@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package eventingestor.v1;
+
+option csharp_namespace = "EventIngestor.Service.Protos";
+
+import "google/protobuf/timestamp.proto";
+
+// Event ingestion API.
+//
+// All RPCs are at-least-once from the client's perspective: an event is acknowledged once it
+// is in the in-memory pipeline, not once it reached a sink. Clients should retry
+// RESOURCE_EXHAUSTED (and throttled counts in IngestReply) with exponential backoff.
+service EventIngestion {
+  // Ingest a single event. Fails with INVALID_ARGUMENT or RESOURCE_EXHAUSTED.
+  rpc Ingest (IngestRequest) returns (IngestReply);
+
+  // Ingest a batch of events. Never fails as a whole because of individual events:
+  // per-event outcomes are reported as counts.
+  rpc IngestBatch (IngestBatchRequest) returns (IngestReply);
+
+  // Client-streaming ingestion for long-lived producers.
+  rpc IngestStream (stream IngestRequest) returns (IngestReply);
+}
+
+message IngestRequest {
+  // Optional UUID. Generated server-side when empty.
+  string id = 1;
+  // Optional. Defaults to the time the server received the event.
+  google.protobuf.Timestamp timestamp = 2;
+  // Required, at most 128 UTF-8 bytes.
+  string source = 3;
+  // Required, at most 128 UTF-8 bytes.
+  string type = 4;
+  // Optional UTF-8 encoded JSON value.
+  bytes payload = 5;
+}
+
+message IngestBatchRequest {
+  repeated IngestRequest events = 1;
+}
+
+message IngestReply {
+  uint32 accepted = 1;
+  uint32 rejected = 2;
+  uint32 throttled = 3;
+}
