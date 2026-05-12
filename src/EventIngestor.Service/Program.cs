@@ -1,16 +1,9 @@
-using EventIngestor.Core.Abstractions;
-using EventIngestor.Pipeline;
+using EventIngestor.Service.Extensions;
 using EventIngestor.Service.GrpcServices;
-using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.Configure<PipelineOptions>(builder.Configuration.GetSection(PipelineOptions.SectionName));
-builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<PipelineOptions>>().Value);
-builder.Services.AddSingleton<IPipelineObserver>(NullPipelineObserver.Instance);
-builder.Services.AddSingleton<ChannelPipeline>();
-builder.Services.AddSingleton<IEventPipeline>(sp => sp.GetRequiredService<ChannelPipeline>());
-builder.Services.AddSingleton<PipelineWriter>();
+builder.Services.AddEventIngestion(builder.Configuration);
 
 builder.Services.AddGrpc(options =>
 {
