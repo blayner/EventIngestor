@@ -20,6 +20,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ChannelPipeline>();
         services.AddSingleton<IEventPipeline>(sp => sp.GetRequiredService<ChannelPipeline>());
         services.AddSingleton<PipelineWriter>();
+        services.AddSingleton<NdjsonPipelineReader>();
 
         services.AddEventSinks(configuration);
 

@@ -110,6 +110,12 @@ public sealed class PipelineWriter
         _observer.EventsRejected(transport, reason, 1);
     }
 
+    /// <summary>Records a rejection for input that never became an event (e.g. an oversized line).</summary>
+    public void Reject(string transport, RejectReason reason)
+    {
+        _observer.EventsRejected(transport, reason, 1);
+    }
+
     private async ValueTask<EnqueueOutcome> EnqueueSlowAsync(IngestEvent evt, CancellationToken cancellationToken)
     {
         if (_enqueueTimeout == TimeSpan.Zero)
