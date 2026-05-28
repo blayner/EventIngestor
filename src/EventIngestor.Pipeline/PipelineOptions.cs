@@ -38,8 +38,20 @@ public sealed class PipelineOptions
     /// <summary>Maximum length of a single NDJSON line (payload plus envelope).</summary>
     public int MaxLineBytes { get; set; } = 512 * 1024;
 
+    /// <summary>
+    /// Maximum number of idle <c>IngestEvent</c> instances kept for reuse. Each retained instance may
+    /// hold a payload buffer of up to <c>IngestEvent.MaxRetainedPayloadBytes</c>, which bounds the
+    /// memory the pool can pin while idle.
+    /// </summary>
+    public int EventPoolSize { get; set; } = 16_384;
+
     public IEnumerable<string> GetValidationErrors()
     {
+        if (EventPoolSize < 0)
+        {
+            yield return $"{nameof(EventPoolSize)} cannot be negative.";
+        }
+
         if (ChannelCapacity <= 0)
         {
             yield return $"{nameof(ChannelCapacity)} must be positive.";

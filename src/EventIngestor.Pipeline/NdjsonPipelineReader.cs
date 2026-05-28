@@ -2,6 +2,7 @@ using System.Buffers;
 using System.IO.Pipelines;
 using EventIngestor.Core.Abstractions;
 using EventIngestor.Core.Models;
+using EventIngestor.Core.Pooling;
 using EventIngestor.Core.Serialization;
 
 namespace EventIngestor.Pipeline;
@@ -29,14 +30,16 @@ public sealed class NdjsonPipelineReader
 
     private readonly PipelineWriter _writer;
     private readonly PipelineOptions _options;
+    private readonly Utf8StringCache? _stringCache;
 
-    public NdjsonPipelineReader(PipelineWriter writer, PipelineOptions options)
+    public NdjsonPipelineReader(PipelineWriter writer, PipelineOptions options, Utf8StringCache? stringCache = null)
     {
         ArgumentNullException.ThrowIfNull(writer);
         ArgumentNullException.ThrowIfNull(options);
 
         _writer = writer;
         _options = options;
+        _stringCache = stringCache;
     }
 
     private static ReadOnlySpan<byte> Whitespace => " \t\r"u8;
@@ -51,34 +54,51 @@ public sealed class NdjsonPipelineReader
         var parsed = new List<IngestEvent>(capacity: 128);
         var state = new ParseState();
         var total = default(IngestResult);
+        var handedOff = false;
 
-        while (true)
+        try
         {
-            var result = await reader.ReadAsync(cancellationToken).ConfigureAwait(false);
-            var buffer = result.Buffer;
-
-            ParseBuffer(ref buffer, result.IsCompleted, parsed, ref state, transport);
-
-            // Consumed up to the start of the incomplete trailing line; examined everything,
-            // so the next ReadAsync only returns once more data has arrived.
-            reader.AdvanceTo(buffer.Start, result.Buffer.End);
-
-            if (state.Rejected > 0)
+            while (true)
             {
-                total += new IngestResult(0, state.Rejected, 0);
-                state.Rejected = 0;
+                var result = await reader.ReadAsync(cancellationToken).ConfigureAwait(false);
+                var buffer = result.Buffer;
+
+                ParseBuffer(ref buffer, result.IsCompleted, parsed, ref state, transport);
+
+                // Consumed up to the start of the incomplete trailing line; examined everything,
+                // so the next ReadAsync only returns once more data has arrived.
+                reader.AdvanceTo(buffer.Start, result.Buffer.End);
+
+                if (state.Rejected > 0)
+                {
+                    total += new IngestResult(0, state.Rejected, 0);
+                    state.Rejected = 0;
+                }
+
+                if (parsed.Count > 0)
+                {
+                    // WriteAsync takes ownership of every event in the list, including on failure.
+                    handedOff = true;
+                    total += await _writer.WriteAsync(parsed, transport, cancellationToken).ConfigureAwait(false);
+                    parsed.Clear();
+                    handedOff = false;
+                }
+
+                if (result.IsCompleted || result.IsCanceled)
+                {
+                    break;
+                }
+            }
+        }
+        catch when (!handedOff)
+        {
+            // Failed while parsing (e.g. the read was cancelled): recycle what we still own.
+            foreach (var evt in parsed)
+            {
+                _writer.Release(evt);
             }
 
-            if (parsed.Count > 0)
-            {
-                total += await _writer.WriteAsync(parsed, transport, cancellationToken).ConfigureAwait(false);
-                parsed.Clear();
-            }
-
-            if (result.IsCompleted || result.IsCanceled)
-            {
-                break;
-            }
+            throw;
         }
 
         return total;
@@ -179,8 +199,8 @@ public sealed class NdjsonPipelineReader
             return;
         }
 
-        var evt = new IngestEvent();
-        var status = EventParser.TryParse(trimmed, evt, _options.MaxPayloadBytes);
+        var evt = _writer.Rent();
+        var status = EventParser.TryParse(trimmed, evt, _options.MaxPayloadBytes, _stringCache);
         if (status == ParseStatus.Ok)
         {
             output.Add(evt);

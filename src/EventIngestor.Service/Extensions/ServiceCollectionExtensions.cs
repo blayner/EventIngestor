@@ -1,4 +1,6 @@
 using EventIngestor.Core.Abstractions;
+using EventIngestor.Core.Models;
+using EventIngestor.Core.Pooling;
 using EventIngestor.Pipeline;
 using EventIngestor.Pipeline.Sinks;
 using EventIngestor.Service.Hosting;
@@ -15,6 +17,11 @@ public static class ServiceCollectionExtensions
             .Validate(o => !o.GetValidationErrors().Any(), $"Invalid '{PipelineOptions.SectionName}' configuration.")
             .ValidateOnStart();
         services.AddSingleton(sp => sp.GetRequiredService<IOptions<PipelineOptions>>().Value);
+
+        services.AddSingleton(sp => new LockFreeObjectPool<IngestEvent>(
+            static () => new IngestEvent(),
+            sp.GetRequiredService<PipelineOptions>().EventPoolSize));
+        services.AddSingleton(_ => new Utf8StringCache());
 
         services.AddSingleton<IPipelineObserver>(NullPipelineObserver.Instance);
         services.AddSingleton<ChannelPipeline>();

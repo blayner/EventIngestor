@@ -1,4 +1,6 @@
 using EventIngestor.Core.Abstractions;
+using EventIngestor.Core.Models;
+using EventIngestor.Core.Pooling;
 using EventIngestor.Pipeline;
 
 namespace EventIngestor.Service.Hosting;
@@ -16,6 +18,7 @@ public sealed class PipelineHostedService(
     IEnumerable<IEventSink> sinks,
     PipelineOptions options,
     IPipelineObserver observer,
+    LockFreeObjectPool<IngestEvent> eventPool,
     ILoggerFactory loggerFactory) : BackgroundService
 {
     private readonly ILogger _logger = loggerFactory.CreateLogger<PipelineHostedService>();
@@ -42,7 +45,8 @@ public sealed class PipelineHostedService(
                 sinkArray,
                 options,
                 observer,
-                loggerFactory.CreateLogger<BatchProcessor>());
+                loggerFactory.CreateLogger<BatchProcessor>(),
+                eventPool);
 
             workers[i] = RunWorkerAsync(processor, stoppingToken);
         }

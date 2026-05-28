@@ -1,5 +1,6 @@
 using System.Text.Json;
 using EventIngestor.Core.Models;
+using EventIngestor.Core.Pooling;
 
 namespace EventIngestor.Core.Serialization;
 
@@ -32,10 +33,17 @@ public static class EventParser
     /// <summary>
     /// Parses a single JSON object into <paramref name="target"/>.
     /// </summary>
+    /// <param name="utf8Json">One JSON object.</param>
+    /// <param name="target">Event to populate; expected to be freshly created or reset.</param>
+    /// <param name="maxPayloadBytes">Upper bound for the raw payload size.</param>
+    /// <param name="stringCache">
+    /// Optional cache used to intern <c>source</c>/<c>type</c> instead of allocating a string per event.
+    /// </param>
     public static ParseStatus TryParse(
         ReadOnlySpan<byte> utf8Json,
         IngestEvent target,
-        int maxPayloadBytes = EventLimits.DefaultMaxPayloadBytes)
+        int maxPayloadBytes = EventLimits.DefaultMaxPayloadBytes,
+        Utf8StringCache? stringCache = null)
     {
         ArgumentNullException.ThrowIfNull(target);
 
@@ -47,7 +55,7 @@ public static class EventParser
                 return ParseStatus.InvalidJson;
             }
 
-            var status = ReadObject(ref reader, utf8Json, target, maxPayloadBytes);
+            var status = ReadObject(ref reader, utf8Json, target, maxPayloadBytes, stringCache);
             if (status != ParseStatus.Ok)
             {
                 return status;
@@ -58,6 +66,11 @@ public static class EventParser
         }
         catch (JsonException)
         {
+            return ParseStatus.InvalidJson;
+        }
+        catch (InvalidOperationException)
+        {
+            // Utf8JsonReader.GetString throws this for strings that are not valid UTF-8.
             return ParseStatus.InvalidJson;
         }
     }
@@ -99,7 +112,8 @@ public static class EventParser
         ref Utf8JsonReader reader,
         ReadOnlySpan<byte> json,
         IngestEvent target,
-        int maxPayloadBytes)
+        int maxPayloadBytes,
+        Utf8StringCache? stringCache)
     {
         var hasSource = false;
         var hasType = false;
@@ -130,7 +144,7 @@ public static class EventParser
             if (reader.ValueTextEquals(SourceProperty))
             {
                 reader.Read();
-                var source = ReadName(ref reader);
+                var source = ReadName(ref reader, stringCache);
                 if (source is null)
                 {
                     return ParseStatus.InvalidField;
@@ -142,7 +156,7 @@ public static class EventParser
             else if (reader.ValueTextEquals(TypeProperty))
             {
                 reader.Read();
-                var type = ReadName(ref reader);
+                var type = ReadName(ref reader, stringCache);
                 if (type is null)
                 {
                     return ParseStatus.InvalidField;
@@ -213,7 +227,7 @@ public static class EventParser
         return ParseStatus.InvalidJson;
     }
 
-    private static string? ReadName(ref Utf8JsonReader reader)
+    private static string? ReadName(ref Utf8JsonReader reader, Utf8StringCache? stringCache)
     {
         if (reader.TokenType != JsonTokenType.String)
         {
@@ -224,6 +238,12 @@ public static class EventParser
         if (length == 0 || length > EventLimits.MaxNameLength)
         {
             return null;
+        }
+
+        // The cache needs the raw bytes to be the actual value: contiguous and without escapes.
+        if (stringCache is not null && !reader.HasValueSequence && !reader.ValueIsEscaped)
+        {
+            return stringCache.GetOrAdd(reader.ValueSpan);
         }
 
         return reader.GetString();

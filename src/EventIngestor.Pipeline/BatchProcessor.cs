@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Threading.Channels;
 using EventIngestor.Core.Abstractions;
 using EventIngestor.Core.Models;
+using EventIngestor.Core.Pooling;
 using Microsoft.Extensions.Logging;
 
 namespace EventIngestor.Pipeline;
@@ -32,6 +33,7 @@ public sealed partial class BatchProcessor
     private readonly PipelineOptions _options;
     private readonly IPipelineObserver _observer;
     private readonly ILogger _logger;
+    private readonly LockFreeObjectPool<IngestEvent>? _eventPool;
     private readonly EventBatch _batch;
     private readonly long _flushIntervalTicks;
 
@@ -44,7 +46,8 @@ public sealed partial class BatchProcessor
         IReadOnlyList<IEventSink> sinks,
         PipelineOptions options,
         IPipelineObserver observer,
-        ILogger logger)
+        ILogger logger,
+        LockFreeObjectPool<IngestEvent>? eventPool = null)
     {
         ArgumentNullException.ThrowIfNull(reader);
         ArgumentNullException.ThrowIfNull(sinks);
@@ -63,6 +66,7 @@ public sealed partial class BatchProcessor
         _options = options;
         _observer = observer;
         _logger = logger;
+        _eventPool = eventPool;
         _batch = new EventBatch(options.BatchSize);
         _flushIntervalTicks = (long)(options.FlushInterval.TotalSeconds * Stopwatch.Frequency);
     }
@@ -221,6 +225,16 @@ public sealed partial class BatchProcessor
 
     private void ReleaseBatch()
     {
+        // Every sink has finished with the batch (sinks must not retain events), so the events
+        // and their payload buffers can be recycled.
+        if (_eventPool is not null)
+        {
+            foreach (var evt in _batch.Span)
+            {
+                _eventPool.Return(evt);
+            }
+        }
+
         _batch.Clear();
         _deadlineCts?.Dispose();
         _deadlineCts = null;

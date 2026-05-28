@@ -18,7 +18,7 @@ public sealed class EventIngestionGrpcService(
 
     public override async Task<IngestReply> Ingest(IngestRequest request, ServerCallContext context)
     {
-        var evt = new IngestEvent();
+        var evt = writer.Rent();
         var rejection = Populate(request, evt);
         if (rejection is { } reason)
         {
@@ -41,7 +41,7 @@ public sealed class EventIngestionGrpcService(
 
         foreach (var item in request.Events)
         {
-            var evt = new IngestEvent();
+            var evt = writer.Rent();
             if (Populate(item, evt) is { } reason)
             {
                 rejected++;
@@ -64,7 +64,7 @@ public sealed class EventIngestionGrpcService(
 
         await foreach (var item in requestStream.ReadAllAsync(ct))
         {
-            var evt = new IngestEvent();
+            var evt = writer.Rent();
             if (Populate(item, evt) is { } reason)
             {
                 total += new IngestResult(0, 1, 0);
