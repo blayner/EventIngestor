@@ -76,6 +76,76 @@ public static class EventParser
     }
 
     /// <summary>
+    /// Parses a JSON array of events. Invalid elements are handed to <paramref name="onRejected"/> and
+    /// skipped; valid ones are appended to <paramref name="output"/>.
+    /// </summary>
+    /// <returns>
+    /// <see cref="ParseStatus.Ok"/> when the array itself is well formed (even if some elements were
+    /// rejected); <see cref="ParseStatus.InvalidJson"/> otherwise, in which case the caller still owns
+    /// the events already added to <paramref name="output"/>.
+    /// </returns>
+    public static ParseStatus ParseArray(
+        ReadOnlySpan<byte> utf8Json,
+        Func<IngestEvent> rent,
+        Action<IngestEvent, ParseStatus> onRejected,
+        List<IngestEvent> output,
+        int maxPayloadBytes = EventLimits.DefaultMaxPayloadBytes,
+        Utf8StringCache? stringCache = null)
+    {
+        ArgumentNullException.ThrowIfNull(rent);
+        ArgumentNullException.ThrowIfNull(onRejected);
+        ArgumentNullException.ThrowIfNull(output);
+
+        var reader = new Utf8JsonReader(utf8Json, ReaderOptions);
+        try
+        {
+            if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
+            {
+                return ParseStatus.InvalidJson;
+            }
+
+            while (reader.Read())
+            {
+                if (reader.TokenType == JsonTokenType.EndArray)
+                {
+                    return reader.Read() ? ParseStatus.InvalidJson : ParseStatus.Ok;
+                }
+
+                var evt = rent();
+
+                if (reader.TokenType != JsonTokenType.StartObject)
+                {
+                    // e.g. [1, "x", [..]]: not an event, skip the whole element.
+                    reader.Skip();
+                    onRejected(evt, ParseStatus.InvalidJson);
+                    continue;
+                }
+
+                var depth = reader.CurrentDepth;
+                var status = ReadObject(ref reader, utf8Json, evt, maxPayloadBytes, stringCache);
+                if (status == ParseStatus.Ok)
+                {
+                    output.Add(evt);
+                    continue;
+                }
+
+                onRejected(evt, status);
+                SkipToEndOfObject(ref reader, depth);
+            }
+
+            return ParseStatus.InvalidJson;
+        }
+        catch (JsonException)
+        {
+            return ParseStatus.InvalidJson;
+        }
+        catch (InvalidOperationException)
+        {
+            return ParseStatus.InvalidJson;
+        }
+    }
+
+    /// <summary>
     /// Returns <c>true</c> when <paramref name="utf8Json"/> is exactly one well-formed JSON value.
     /// Used to validate payloads that arrive as opaque bytes (gRPC).
     /// </summary>
@@ -225,6 +295,21 @@ public static class EventParser
         }
 
         return ParseStatus.InvalidJson;
+    }
+
+    /// <summary>
+    /// After a failed <see cref="ReadObject"/>, advances to the <see cref="JsonTokenType.EndObject"/>
+    /// that closes the object started at <paramref name="depth"/>, wherever the failure left the reader.
+    /// </summary>
+    private static void SkipToEndOfObject(ref Utf8JsonReader reader, int depth)
+    {
+        while (!(reader.TokenType == JsonTokenType.EndObject && reader.CurrentDepth == depth))
+        {
+            if (!reader.Read())
+            {
+                throw new JsonException("Unexpected end of JSON while skipping a rejected element.");
+            }
+        }
     }
 
     private static string? ReadName(ref Utf8JsonReader reader, Utf8StringCache? stringCache)

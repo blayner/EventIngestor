@@ -1,3 +1,4 @@
+using EventIngestor.Core.Serialization;
 using EventIngestor.Service.Extensions;
 using EventIngestor.Service.GrpcServices;
 
@@ -11,9 +12,26 @@ builder.Services.AddGrpc(options =>
     options.EnableDetailedErrors = builder.Environment.IsDevelopment();
 });
 
+builder.Services
+    .AddControllers()
+    .AddJsonOptions(o => o.JsonSerializerOptions.TypeInfoResolverChain.Insert(0, IngestorJsonContext.Default));
+
+builder.Services.AddProblemDetails();
+builder.Services.AddOpenApi();
+
 var app = builder.Build();
 
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
+
 app.MapGrpcService<EventIngestionGrpcService>();
-app.MapGet("/", () => "EventIngestor: gRPC on :8081");
+app.MapControllers();
 
 app.Run();
+
+/// <summary>Exposed for WebApplicationFactory in integration tests.</summary>
+public partial class Program
+{
+}

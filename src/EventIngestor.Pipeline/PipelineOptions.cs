@@ -38,6 +38,9 @@ public sealed class PipelineOptions
     /// <summary>Maximum length of a single NDJSON line (payload plus envelope).</summary>
     public int MaxLineBytes { get; set; } = 512 * 1024;
 
+    /// <summary>Maximum body size of buffered (non-streaming) requests such as a JSON array batch.</summary>
+    public int MaxRequestBytes { get; set; } = 16 * 1024 * 1024;
+
     /// <summary>
     /// Maximum number of idle <c>IngestEvent</c> instances kept for reuse. Each retained instance may
     /// hold a payload buffer of up to <c>IngestEvent.MaxRetainedPayloadBytes</c>, which bounds the
@@ -95,6 +98,11 @@ public sealed class PipelineOptions
         if (MaxLineBytes <= MaxPayloadBytes)
         {
             yield return $"{nameof(MaxLineBytes)} must be greater than {nameof(MaxPayloadBytes)}.";
+        }
+
+        if (MaxRequestBytes < MaxLineBytes)
+        {
+            yield return $"{nameof(MaxRequestBytes)} cannot be smaller than {nameof(MaxLineBytes)}.";
         }
     }
 
