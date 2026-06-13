@@ -4,6 +4,7 @@ using EventIngestor.Core.Pooling;
 using EventIngestor.Pipeline;
 using EventIngestor.Pipeline.Sinks;
 using EventIngestor.Service.Hosting;
+using EventIngestor.Service.Metrics;
 using Microsoft.Extensions.Options;
 
 namespace EventIngestor.Service.Extensions;
@@ -23,7 +24,7 @@ public static class ServiceCollectionExtensions
             sp.GetRequiredService<PipelineOptions>().EventPoolSize));
         services.AddSingleton(_ => new Utf8StringCache());
 
-        services.AddSingleton<IPipelineObserver>(NullPipelineObserver.Instance);
+        services.AddSingleton<IPipelineObserver, PrometheusPipelineObserver>();
         services.AddSingleton<ChannelPipeline>();
         services.AddSingleton<IEventPipeline>(sp => sp.GetRequiredService<ChannelPipeline>());
         services.AddSingleton<PipelineWriter>();

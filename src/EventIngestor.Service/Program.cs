@@ -1,6 +1,10 @@
 using EventIngestor.Core.Serialization;
 using EventIngestor.Service.Extensions;
 using EventIngestor.Service.GrpcServices;
+using EventIngestor.Service.Health;
+using EventIngestor.Service.Metrics;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Prometheus;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,7 +23,14 @@ builder.Services
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 
+builder.Services
+    .AddHealthChecks()
+    .AddCheck<PipelineHealthCheck>("pipeline", tags: ["ready"]);
+
 var app = builder.Build();
+
+app.UseRouting();
+app.UseMiddleware<MetricsMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
@@ -28,6 +39,16 @@ if (app.Environment.IsDevelopment())
 
 app.MapGrpcService<EventIngestionGrpcService>();
 app.MapControllers();
+
+// Liveness: the process is up and serving requests. Readiness: the pipeline is draining.
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = HealthResponseWriter.WriteAsync,
+});
+
+app.MapMetrics();
 
 app.Run();
 
