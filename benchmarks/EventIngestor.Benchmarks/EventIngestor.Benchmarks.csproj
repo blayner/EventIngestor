@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <Optimize>true</Optimize>
+    <IsPackable>false</IsPackable>
+    <TieredPGO>true</TieredPGO>
+    <!-- Benchmarks run single-process; workstation GC keeps allocation numbers comparable across machines. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\EventIngestor.Core\EventIngestor.Core.csproj" />
+    <ProjectReference Include="..\..\src\EventIngestor.Pipeline\EventIngestor.Pipeline.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -11,6 +11,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventIngestor.Service", "sr
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventIngestor.Tests", "tests\EventIngestor.Tests\EventIngestor.Tests.csproj", "{4B7A0E93-F2C6-4D18-B5E7-6A1C08D39F25}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventIngestor.Benchmarks", "benchmarks\EventIngestor.Benchmarks\EventIngestor.Benchmarks.csproj", "{E95D3B21-8A47-4C0F-9D62-B4F17A05C83E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{4B7A0E93-F2C6-4D18-B5E7-6A1C08D39F25}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4B7A0E93-F2C6-4D18-B5E7-6A1C08D39F25}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4B7A0E93-F2C6-4D18-B5E7-6A1C08D39F25}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E95D3B21-8A47-4C0F-9D62-B4F17A05C83E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E95D3B21-8A47-4C0F-9D62-B4F17A05C83E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E95D3B21-8A47-4C0F-9D62-B4F17A05C83E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E95D3B21-8A47-4C0F-9D62-B4F17A05C83E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
