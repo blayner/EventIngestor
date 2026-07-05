@@ -1,0 +1,17 @@
+**/bin/
+**/obj/
+**/TestResults/
+**/BenchmarkDotNet.Artifacts/
+.git/
+.github/
+.vs/
+.vscode/
+.idea/
+data/
+grafana/
+load-tests/
+benchmarks/
+tests/
+*.md
+docker-compose*.yml
+Dockerfile

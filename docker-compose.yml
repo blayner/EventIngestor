@@ -1,0 +1,57 @@
+name: eventingestor
+
+services:
+  ingestor:
+    build: .
+    image: eventingestor:local
+    ports:
+      - "8080:8080"   # REST, /health, /metrics
+      - "8081:8081"   # gRPC
+    environment:
+      Ingestor__Pipeline__ConsumerCount: "4"
+      Ingestor__Pipeline__ChannelCapacity: "100000"
+      Ingestor__Sinks__File__Enabled: "true"
+    volumes:
+      - ingestor-data:/data
+    # Fixed limits make load-test runs comparable between machines.
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 1g
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - ingestor
+
+  grafana:
+    image: grafana/grafana:12.4.9
+    environment:
+      # Local development only.
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/eventingestor.json
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  ingestor-data:
+  prometheus-data:
+  grafana-data:
