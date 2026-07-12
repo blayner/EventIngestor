@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  build-test:
+    name: Build & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Test
+        run: >
+          dotnet test --no-build --configuration Release
+          --logger "trx;LogFileName=results.trx"
+          --collect "XPlat Code Coverage"
+          --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults
+
+  benchmarks:
+    name: Benchmarks (dry run)
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      # Dry job: every benchmark runs once. This proves they build and execute, nothing more.
+      # Numbers from shared CI runners are too noisy to compare and are not published.
+      - name: Run benchmarks (dry)
+        run: dotnet run --configuration Release --project benchmarks/EventIngestor.Benchmarks -- --filter '*' --job Dry
+
+  docker-smoke:
+    name: Docker image + k6 smoke test
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build image
+        run: docker build --tag eventingestor:ci .
+
+      - name: Start service
+        run: |
+          docker run --detach --name ingestor \
+            --publish 8080:8080 --publish 8081:8081 \
+            --env Ingestor__Sinks__File__Enabled=false \
+            eventingestor:ci
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://localhost:8080/health/ready > /dev/null; then
+              echo "Service is ready"; exit 0
+            fi
+            sleep 2
+          done
+          echo "Service did not become ready"; docker logs ingestor; exit 1
+
+      - name: k6 smoke test
+        run: >
+          docker run --rm --network host
+          --volume "$PWD/load-tests/k6:/scripts:ro"
+          --env BASE_URL=http://localhost:8080
+          --env DURATION=20s
+          grafana/k6 run /scripts/smoke.js
+
+      - name: Service logs
+        if: always()
+        run: docker logs ingestor
