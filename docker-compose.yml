@@ -35,7 +35,7 @@ services:
       - ingestor
 
   grafana:
-    image: grafana/grafana:12.4.9
+    image: grafana/grafana:12.4.15
     environment:
       # Local development only.
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
