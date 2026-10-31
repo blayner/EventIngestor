@@ -5,6 +5,8 @@ namespace EventIngestor.Tests.Pipeline;
 
 public class ChannelPipelineTests
 {
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
     private static IngestEvent NewEvent() => new() { Source = "test", Type = "t" };
 
     [Fact]
@@ -24,13 +26,13 @@ public class ChannelPipelineTests
         var pipeline = new ChannelPipeline(new PipelineOptions { ChannelCapacity = 1, ConsumerCount = 1 });
         Assert.True(pipeline.TryEnqueue(NewEvent()));
 
-        var pending = pipeline.EnqueueAsync(NewEvent()).AsTask();
-        await Task.Delay(50);
+        var pending = pipeline.EnqueueAsync(NewEvent(), Ct).AsTask();
+        await Task.Delay(50, Ct);
         Assert.False(pending.IsCompleted);
 
         Assert.True(pipeline.Reader.TryRead(out _));
 
-        Assert.True(await pending.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.True(await pending.WaitAsync(TimeSpan.FromSeconds(5), Ct));
         Assert.Equal(1, pipeline.Count);
     }
 
@@ -40,10 +42,10 @@ public class ChannelPipelineTests
         var pipeline = new ChannelPipeline(new PipelineOptions { ChannelCapacity = 1, ConsumerCount = 1 });
         Assert.True(pipeline.TryEnqueue(NewEvent()));
 
-        var pending = pipeline.EnqueueAsync(NewEvent()).AsTask();
+        var pending = pipeline.EnqueueAsync(NewEvent(), Ct).AsTask();
         pipeline.Complete();
 
-        Assert.False(await pending.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.False(await pending.WaitAsync(TimeSpan.FromSeconds(5), Ct));
         Assert.False(pipeline.TryEnqueue(NewEvent()));
     }
 
@@ -66,7 +68,7 @@ public class ChannelPipelineTests
         pipeline.Complete();
 
         var read = 0;
-        await foreach (var _ in pipeline.Reader.ReadAllAsync())
+        await foreach (var _ in pipeline.Reader.ReadAllAsync(Ct))
         {
             read++;
         }

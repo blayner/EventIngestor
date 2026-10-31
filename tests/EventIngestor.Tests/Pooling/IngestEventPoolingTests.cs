@@ -11,6 +11,8 @@ namespace EventIngestor.Tests.Pooling;
 
 public class IngestEventPoolingTests
 {
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
     [Fact]
     public void Reset_clears_every_field()
     {
@@ -82,7 +84,7 @@ public class IngestEventPoolingTests
         }
 
         pipeline.Complete();
-        await processor.RunAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
+        await processor.RunAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5), Ct);
 
         Assert.Equal(10, pool.Retained);
         Assert.Equal(10, pool.Created);
@@ -96,7 +98,7 @@ public class IngestEventPoolingTests
         var writer = new PipelineWriter(new ChannelPipeline(options), options, new RecordingObserver(), pool);
         var events = Enumerable.Range(0, 3).Select(_ => writer.Rent()).ToList();
 
-        var result = await writer.WriteAsync(events, Transports.Http);
+        var result = await writer.WriteAsync(events, Transports.Http, Ct);
 
         Assert.Equal(new IngestResult(1, 0, 2), result);
         Assert.Equal(2, pool.Retained);

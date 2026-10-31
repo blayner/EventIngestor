@@ -6,15 +6,17 @@ namespace EventIngestor.Tests.Pipeline;
 
 public class PipeReaderExtensionsTests
 {
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
     [Fact]
     public async Task Reads_a_body_written_in_several_chunks()
     {
         var pipe = new Pipe(new PipeOptions(minimumSegmentSize: 16));
-        var read = pipe.Reader.ReadToEndAsync(maxBytes: 1024).AsTask();
+        var read = pipe.Reader.ReadToEndAsync(maxBytes: 1024, Ct).AsTask();
 
         foreach (var part in new[] { "{\"source\":", "\"a\",\"type\"", ":\"b\"}" })
         {
-            await pipe.Writer.WriteAsync(Encoding.UTF8.GetBytes(part));
+            await pipe.Writer.WriteAsync(Encoding.UTF8.GetBytes(part), Ct);
         }
 
         await pipe.Writer.CompleteAsync();
@@ -29,7 +31,7 @@ public class PipeReaderExtensionsTests
     {
         var reader = PipeReader.Create(new MemoryStream(new byte[4096]));
 
-        using var body = await reader.ReadToEndAsync(maxBytes: 100);
+        using var body = await reader.ReadToEndAsync(maxBytes: 100, Ct);
 
         Assert.True(body.IsTooLarge);
         Assert.Equal(0, body.Length);
@@ -38,7 +40,7 @@ public class PipeReaderExtensionsTests
     [Fact]
     public async Task Empty_body_yields_an_empty_buffer()
     {
-        using var body = await PipeReader.Create(new MemoryStream()).ReadToEndAsync(maxBytes: 100);
+        using var body = await PipeReader.Create(new MemoryStream()).ReadToEndAsync(maxBytes: 100, Ct);
 
         Assert.False(body.IsTooLarge);
         Assert.True(body.Span.IsEmpty);

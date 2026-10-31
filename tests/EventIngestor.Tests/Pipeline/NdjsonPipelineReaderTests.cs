@@ -9,6 +9,8 @@ namespace EventIngestor.Tests.Pipeline;
 
 public class NdjsonPipelineReaderTests
 {
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
     private static (NdjsonPipelineReader Reader, ChannelPipeline Pipeline, RecordingObserver Observer) Create(PipelineOptions? options = null)
     {
         options ??= new PipelineOptions { ChannelCapacity = 10_000, ConsumerCount = 1 };
@@ -55,7 +57,7 @@ public class NdjsonPipelineReaderTests
         var (reader, pipeline, _) = Create();
         var body = Line(1) + "\n" + Line(2) + "\r\n" + Line(3) + "\n" + Line(4);
 
-        var result = await reader.ReadAsync(PipeReader.Create(new MemoryStream(Encoding.UTF8.GetBytes(body))));
+        var result = await reader.ReadAsync(PipeReader.Create(new MemoryStream(Encoding.UTF8.GetBytes(body))), cancellationToken: Ct);
 
         Assert.Equal(new IngestResult(4, 0, 0), result);
         Assert.Equal(new[] { "evt.1", "evt.2", "evt.3", "evt.4" }, Drain(pipeline).Select(e => e.Type));
@@ -81,7 +83,7 @@ public class NdjsonPipelineReaderTests
         var (reader, pipeline, observer) = Create();
         var body = string.Join("\n", Line(1), "{not json", Line(2), """{"source":"missing-type"}""") + "\n";
 
-        var result = await reader.ReadAsync(PipeReader.Create(new MemoryStream(Encoding.UTF8.GetBytes(body))));
+        var result = await reader.ReadAsync(PipeReader.Create(new MemoryStream(Encoding.UTF8.GetBytes(body))), cancellationToken: Ct);
 
         Assert.Equal(new IngestResult(2, 2, 0), result);
         Assert.Equal(2, observer.RejectedCount(RejectReason.InvalidEvent));
@@ -94,7 +96,7 @@ public class NdjsonPipelineReaderTests
         var (reader, _, _) = Create();
         var body = "\n\n" + Line(1) + "\n   \n\t\r\n" + Line(2) + "\n\n";
 
-        var result = await reader.ReadAsync(PipeReader.Create(new MemoryStream(Encoding.UTF8.GetBytes(body))));
+        var result = await reader.ReadAsync(PipeReader.Create(new MemoryStream(Encoding.UTF8.GetBytes(body))), cancellationToken: Ct);
 
         Assert.Equal(new IngestResult(2, 0, 0), result);
     }
@@ -121,7 +123,7 @@ public class NdjsonPipelineReaderTests
         var (reader, _, observer) = Create(options);
         var body = string.Join("\n", Enumerable.Range(0, 5).Select(i => Line(i)));
 
-        var result = await reader.ReadAsync(PipeReader.Create(new MemoryStream(Encoding.UTF8.GetBytes(body))));
+        var result = await reader.ReadAsync(PipeReader.Create(new MemoryStream(Encoding.UTF8.GetBytes(body))), cancellationToken: Ct);
 
         Assert.Equal(new IngestResult(2, 0, 3), result);
         Assert.Equal(3, observer.RejectedCount(RejectReason.Backpressure));

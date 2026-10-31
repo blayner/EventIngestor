@@ -8,6 +8,8 @@ namespace EventIngestor.Tests.Pipeline;
 
 public class BatchProcessorTests
 {
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
     private static IngestEvent NewEvent() => new() { Id = Guid.NewGuid(), Source = "test", Type = "t" };
 
     private static (ChannelPipeline Pipeline, BatchProcessor Processor) Create(
@@ -35,7 +37,7 @@ public class BatchProcessorTests
         await Eventually.True(() => sink.Batches.Count == 2, because: "two full batches should flush without waiting for the interval");
 
         pipeline.Complete();
-        await run.WaitAsync(TimeSpan.FromSeconds(5));
+        await run.WaitAsync(TimeSpan.FromSeconds(5), Ct);
 
         Assert.Equal(new[] { 10, 10, 5 }, sink.Batches.Select(b => b.Ids.Length));
         Assert.Equal(new[] { 1L, 2L, 3L }, sink.Batches.Select(b => b.Sequence));
@@ -57,7 +59,7 @@ public class BatchProcessorTests
         Assert.Single(sink.Batches);
 
         cts.Cancel();
-        await run.WaitAsync(TimeSpan.FromSeconds(5));
+        await run.WaitAsync(TimeSpan.FromSeconds(5), Ct);
     }
 
     [Fact]
@@ -74,7 +76,7 @@ public class BatchProcessorTests
         }
 
         pipeline.Complete();
-        await processor.RunAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
+        await processor.RunAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5), Ct);
 
         Assert.Equal(5, sink.Inner.EventCount);
         Assert.Equal(2, observer.BatchFailures);
@@ -96,7 +98,7 @@ public class BatchProcessorTests
         }
 
         pipeline.Complete();
-        await processor.RunAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
+        await processor.RunAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5), Ct);
 
         Assert.Equal(2, observer.BatchesDropped);
         Assert.Equal(4, sink.Calls); // 2 batches x (1 attempt + 1 retry)
@@ -116,9 +118,9 @@ public class BatchProcessorTests
             pipeline.TryEnqueue(NewEvent());
         }
 
-        await Task.Delay(50);
+        await Task.Delay(50, Ct);
         cts.Cancel();
-        await run.WaitAsync(TimeSpan.FromSeconds(5));
+        await run.WaitAsync(TimeSpan.FromSeconds(5), Ct);
 
         Assert.Equal(42, sink.EventCount);
     }
@@ -140,11 +142,11 @@ public class BatchProcessorTests
         {
             var evt = NewEvent();
             expected.Add(evt.Id);
-            Assert.True(await pipeline.EnqueueAsync(evt));
+            Assert.True(await pipeline.EnqueueAsync(evt, Ct));
         }
 
         pipeline.Complete();
-        await Task.WhenAll(runs).WaitAsync(TimeSpan.FromSeconds(10));
+        await Task.WhenAll(runs).WaitAsync(TimeSpan.FromSeconds(10), Ct);
 
         var delivered = sink.AllIds.ToList();
         Assert.Equal(eventCount, delivered.Count);
